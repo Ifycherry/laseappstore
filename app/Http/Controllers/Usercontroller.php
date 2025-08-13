@@ -12,9 +12,8 @@ use Illuminate\Support\Facades\Mail;
 
 class Usercontroller extends Controller
 {
-    //
-    public function register(Request $request)
-    {
+    // adding the user
+    public function register(Request $request) {
         $validator = Validator::make(
             $request->all(),
             [
@@ -74,6 +73,7 @@ class Usercontroller extends Controller
         }
     }
 
+    // verify email account
     public function verify(Request $request){
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
