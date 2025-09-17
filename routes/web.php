@@ -8,5 +8,5 @@ use Illuminate\Support\Facades\View;
 //     return view('welcome');
 // });
 Route::get('/', function () {
-return view('Home');
+return view('welcome');
 });
