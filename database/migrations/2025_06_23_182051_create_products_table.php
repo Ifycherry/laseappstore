@@ -23,6 +23,7 @@ return new class extends Migration
             $table->decimal('product_quantity',11,2);
             $table->foreignId('vendor_id')->constrained('users')
             ->onDelect('cascade');
+            $table->enum('admin_status',['approved','pending','rejected'])->default(('pending'));
             $table->softDeletes();
             $table->timestamps();
         });

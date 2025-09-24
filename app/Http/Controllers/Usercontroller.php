@@ -166,10 +166,100 @@ class Usercontroller extends Controller
         ], 400);
     }
 
-    public function getUser()
+    public function getUsers()
     {
         $users = User::all();
         return $users;
+    }
+
+    public function adminUpdateUserRole(Request $request, $id) {
+        $validator = Validator::make($request->all(),[
+            'role' => 'required|in:user,admin,vendor'
+        ]);
+        
+
+        if($validator->fails()){
+            return response()->json([
+                'errors' => $validator->errors(),
+            ],400);
+        }
+        try{
+            $user = User::find($id);
+            if(!$user){
+                return response()->json([
+                    'message' => 'User not found',
+                ],404);
+            }
+            $user->role = $request->input('role');
+            $user->save();
+        } catch(\Exception $error){
+            return response()->json([
+                'errors'=> $error,
+            ],500);
+        }
+
+        return response()->json([
+            'user' => $user,
+            'message' => 'User role updated successfully',
+        ],200);
+    }
+
+    public function editUser(Request $request, $id) {
+        $validator = Validator::make($request->all(),[
+        'firstname' => 'sometimes|required|string|max:50',
+        'lastname' => 'sometimes|required|string|max:50',
+        'email'=> 'sometimes|required|string|email|unique:users,email',
+        'password' => 'sometimes|required|same:confirm_password|string|min:8',
+        'confirm_password' => 'sometimes|required|string|same:password',
+        'phone_number' => 'sometimes|required|string|min:11|max:14|unique:users,phone_number',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'errors' => $validator->errors(),
+            'message' => 'Update Failed',
+        ],400);
+    }
+    try {
+        $user = User::find($id);
+        if(!$user) {
+            return response()->json([
+                'message' => 'User not found',
+            ],404);
+        }
+
+        if ($request->has('firstname')) {
+        $user->firstname = $request->input('firstname');
+        }
+        if ($request->has('lastname')) {
+            $user->lastname =$request->input('lastname');
+        }
+        if ($request->has('email')) {
+            $user->email = $request->input('email');
+            $user->email_verified_at = null; //Reset email verification
+            $verification_code =rand(100000, 999999);
+            $user->verification_code = $verification_code;
+            Mail::to($user->email)->send(new \App\Mail\UserEmailVerification($user));
+        }
+        if ($request->has('password')) {
+            $user->password = $request->input('password');
+
+        }
+        if ($request->has('phone_number')) {
+            $user->phone_number = $request->input('phone_number');
+        }
+        $user->save();
+
+        return response()->json([
+            'user' => $user,
+            'message' => "User updated successfully",
+        ],200);
+    } catch (\Exception $error) {
+        return response()->json([
+            'errors' => $error,
+            'message' => 'Server Error'
+        ],500);
+    }
     }
 
 }
