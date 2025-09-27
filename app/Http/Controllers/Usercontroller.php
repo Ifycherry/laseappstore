@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Mail;
 class Usercontroller extends Controller
 {
     // adding the user
-    public function register(Request $request) {
+    public function register(Request $request)
+    {
         $validator = Validator::make(
             $request->all(),
             [
@@ -48,7 +49,7 @@ class Usercontroller extends Controller
             $user->verification_code = $verification_code;
             $user->save();
             Mail::to($user->email)->send(new \App\Mail\UserEmailVerification($user));
-            
+
             // if(Mail::to($user->email)->send(new \App\Mail\UserEmailVerification($user))) {
             //     $user->save();
             // } else {
@@ -74,7 +75,8 @@ class Usercontroller extends Controller
     }
 
     // verify email account
-    public function verify(Request $request){
+    public function verify(Request $request)
+    {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'code' => 'required',
@@ -113,36 +115,36 @@ class Usercontroller extends Controller
 
 
     // public function login (Request $request){
-//     $validator = Validator::make($request->all(),[
-//         'email' => 'required|email',
-//         'password' => 'required',
-//     ]);
+    //     $validator = Validator::make($request->all(),[
+    //         'email' => 'required|email',
+    //         'password' => 'required',
+    //     ]);
 
     //     if($validator->fails()) {
-//         return response()->json([
-//             'errors' => $validator->errors(),
-//         ],400);
-//     }
+    //         return response()->json([
+    //             'errors' => $validator->errors(),
+    //         ],400);
+    //     }
 
     //     try{
-//         $user = User::where('email',$request->input('email'))->first();
-//         if($user && Hash::check($request->input('password'),
-//         $user->password)) {
-//           return response()->json([
-//             'user' => $user,
-//             'message' => 'Login Successfully',
-//           ]);
-//         } else{
-//             return response()->json([
-//                 'message' => "Invalid Login Credentials",
-//             ],400);
-//         }
-//     } catch(\Exception $error) {
-//        return response()->json([
-//             'error' => $error,
-//         ]);
-//     }
-// }
+    //         $user = User::where('email',$request->input('email'))->first();
+    //         if($user && Hash::check($request->input('password'),
+    //         $user->password)) {
+    //           return response()->json([
+    //             'user' => $user,
+    //             'message' => 'Login Successfully',
+    //           ]);
+    //         } else{
+    //             return response()->json([
+    //                 'message' => "Invalid Login Credentials",
+    //             ],400);
+    //         }
+    //     } catch(\Exception $error) {
+    //        return response()->json([
+    //             'error' => $error,
+    //         ]);
+    //     }
+    // }
 
     public function login(Request $request)
     {
@@ -166,100 +168,160 @@ class Usercontroller extends Controller
         ], 400);
     }
 
+    public function forgetPasswordEmail(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|exists:users,email',
+        ], ['email.exist' => 'The email does not exist in our record.']);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => $validator->errors(),
+            ], 400);
+        }
+
+        try {
+            $user = User::where('email', $request->email)->first();
+            // if (!$user) {
+            //     return response()->json([
+            //         'message' => "User not found",
+            //     ], 404);
+            // }
+            Mail::send(
+                'emails.forget-password',
+                [
+                    'user' => $user,
+                    'url' => env('FRONTEND_URL') . '/api/changepassword?email=' . $user->email,
+                ],
+                function ($message) use ($user) {
+                    $message->to($user->email)->subject('Reset Account Password');
+                }
+            );
+
+            return response()->json([
+                'message' => "Please check your mail to rest password"
+            ], 200);
+        } catch (\Exception $error) {
+            return response()->json([
+                'error' => $error->getMessage(),
+                'message' => 'Server Error'
+            ], 500);
+        }
+    }
+
     public function getUsers()
     {
         $users = User::all();
         return $users;
     }
 
-    public function adminUpdateUserRole(Request $request, $id) {
-        $validator = Validator::make($request->all(),[
+    public function adminUpdateUserRole(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
             'role' => 'required|in:user,admin,vendor'
         ]);
-        
 
-        if($validator->fails()){
+
+        if ($validator->fails()) {
             return response()->json([
                 'errors' => $validator->errors(),
-            ],400);
+            ], 400);
         }
-        try{
+        try {
             $user = User::find($id);
-            if(!$user){
+            if (!$user) {
                 return response()->json([
                     'message' => 'User not found',
-                ],404);
+                ], 404);
             }
             $user->role = $request->input('role');
             $user->save();
-        } catch(\Exception $error){
+        } catch (\Exception $error) {
             return response()->json([
-                'errors'=> $error,
-            ],500);
+                'errors' => $error,
+            ], 500);
         }
 
         return response()->json([
             'user' => $user,
             'message' => 'User role updated successfully',
-        ],200);
+        ], 200);
     }
 
-    public function editUser(Request $request, $id) {
-        $validator = Validator::make($request->all(),[
-        'firstname' => 'sometimes|required|string|max:50',
-        'lastname' => 'sometimes|required|string|max:50',
-        'email'=> 'sometimes|required|string|email|unique:users,email',
-        'password' => 'sometimes|required|same:confirm_password|string|min:8',
-        'confirm_password' => 'sometimes|required|string|same:password',
-        'phone_number' => 'sometimes|required|string|min:11|max:14|unique:users,phone_number',
-    ]);
+    public function editUser(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'firstname' => 'sometimes|required|string|max:50',
+            'lastname' => 'sometimes|required|string|max:50',
+            'email' => 'sometimes|required|string|email|unique:users,email',
+            'password' => 'sometimes|required|same:confirm_password|string|min:8',
+            'confirm_password' => 'sometimes|required|string|same:password',
+            'phone_number' => 'sometimes|required|string|min:11|max:14|unique:users,phone_number',
+        ]);
 
-    if ($validator->fails()) {
-        return response()->json([
-            'errors' => $validator->errors(),
-            'message' => 'Update Failed',
-        ],400);
-    }
-    try {
-        $user = User::find($id);
-        if(!$user) {
+        if ($validator->fails()) {
             return response()->json([
-                'message' => 'User not found',
-            ],404);
+                'errors' => $validator->errors(),
+                'message' => 'Update Failed',
+            ], 400);
         }
+        try {
+            $user = User::find($id);
+            if (!$user) {
+                return response()->json([
+                    'message' => 'User not found',
+                ], 404);
+            }
 
-        if ($request->has('firstname')) {
-        $user->firstname = $request->input('firstname');
-        }
-        if ($request->has('lastname')) {
-            $user->lastname =$request->input('lastname');
-        }
-        if ($request->has('email')) {
-            $user->email = $request->input('email');
-            $user->email_verified_at = null; //Reset email verification
-            $verification_code =rand(100000, 999999);
-            $user->verification_code = $verification_code;
-            Mail::to($user->email)->send(new \App\Mail\UserEmailVerification($user));
-        }
-        if ($request->has('password')) {
-            $user->password = $request->input('password');
+            if ($request->has('firstname')) {
+                $user->firstname = $request->input('firstname');
+            }
+            if ($request->has('lastname')) {
+                $user->lastname = $request->input('lastname');
+            }
+            if ($request->has('email')) {
+                $user->email = $request->input('email');
+                $user->email_verified_at = null; //Reset email verification
+                $verification_code = rand(100000, 999999);
+                $user->verification_code = $verification_code;
+                Mail::to($user->email)->send(new \App\Mail\UserEmailVerification($user));
+            }
+            if ($request->has('password')) {
+                $user->password = $request->input('password');
+            }
+            if ($request->has('phone_number')) {
+                $user->phone_number = $request->input('phone_number');
+            }
+            $user->save();
 
+            return response()->json([
+                'user' => $user,
+                'message' => "User updated successfully",
+            ], 200);
+        } catch (\Exception $error) {
+            return response()->json([
+                'errors' => $error,
+                'message' => 'Server Error'
+            ], 500);
         }
-        if ($request->has('phone_number')) {
-            $user->phone_number = $request->input('phone_number');
-        }
-        $user->save();
-
-        return response()->json([
-            'user' => $user,
-            'message' => "User updated successfully",
-        ],200);
-    } catch (\Exception $error) {
-        return response()->json([
-            'errors' => $error,
-            'message' => 'Server Error'
-        ],500);
     }
-    }
 
+    public function getUser($id)
+    {
+        try {
+            $user = User::find($id);
+            if (!$user) {
+                return response()->json([
+                    'message' => 'User not found',
+                ], 404);
+            }
+            return response()->json([
+                'user' => $user
+            ], 200);
+        } catch (\Exception $error) {
+            return response()->json([
+                'error' => $error
+            ], 500);
+        }
+    }
 }
