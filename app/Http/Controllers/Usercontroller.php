@@ -5,9 +5,16 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+
+use function Laravel\Prompts\password;
+
 //use Illuminate\Support\Facades\Hash;
 
 class Usercontroller extends Controller
@@ -25,6 +32,7 @@ class Usercontroller extends Controller
                 'password' => 'required|same:confirm_password|string|min:8',
                 'confirm_password' => 'required|string|same:password',
                 'phone_number' => 'required|string|min:11|max:14|unique:users,phone_number|regex:/^0[789][01]\d{8,}$/',
+                'image' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
                 'role' => 'required|in:user,admin,vendor',
 
             ],
@@ -38,6 +46,8 @@ class Usercontroller extends Controller
             ], 400);
         }
         try {
+
+
             $verification_code = rand(100000, 999999);
             $user = new User;
             $user->firstname = $request->input('firstname');
@@ -46,9 +56,14 @@ class Usercontroller extends Controller
             $user->password = $request->input('password');
             $user->phone_number = $request->input('phone_number');
             $user->role = $request->input('role');
+            $user->image = $request->file('image')->store('User_image', 'public');
             $user->verification_code = $verification_code;
+
             $user->save();
             Mail::to($user->email)->send(new \App\Mail\UserEmailVerification($user));
+
+
+
 
             // if(Mail::to($user->email)->send(new \App\Mail\UserEmailVerification($user))) {
             //     $user->save();
@@ -68,7 +83,7 @@ class Usercontroller extends Controller
             // return"Register Here"
         } catch (\Exception $error) {
             return response()->json([
-                'error' => $error,
+                'errors' => $error->getMessage(),
                 'message' => 'Server Error'
             ], 500);
         }
@@ -176,12 +191,19 @@ class Usercontroller extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'error' => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 400);
         }
 
         try {
             $user = User::where('email', $request->email)->first();
+            $token = Str::random(60);
+            DB::table('password_reset_tokens')->insert([
+                'email' => $request->email,
+                'token' => Hash::make($token),
+                'created_at' => Carbon::now(),
+            ]);
+            //return $token;
             // if (!$user) {
             //     return response()->json([
             //         'message' => "User not found",
@@ -191,7 +213,7 @@ class Usercontroller extends Controller
                 'emails.forget-password',
                 [
                     'user' => $user,
-                    'url' => env('FRONTEND_URL') . '/api/changepassword?email=' . $user->email,
+                    'url' => env('FRONTEND_URL') . '/change-password?email=' . $user->email. "&token=" . $token,
                 ],
                 function ($message) use ($user) {
                     $message->to($user->email)->subject('Reset Account Password');
@@ -199,13 +221,67 @@ class Usercontroller extends Controller
             );
 
             return response()->json([
-                'message' => "Please check your mail to rest password"
+                'message' => "Please check your mail to reset password"
             ], 200);
         } catch (\Exception $error) {
             return response()->json([
-                'error' => $error->getMessage(),
+                'errors' => $error->getMessage(),
                 'message' => 'Server Error'
             ], 500);
+        }
+    }
+
+    public function changePassword(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:Users,email',
+            'token' => 'required|string',
+            'password' => 'required|string|same:confirmed'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Request Error',
+                'errors' => $validator->errors(),
+            ], 400);
+        }
+        try{
+            $tokenUser = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+            if(!$tokenUser) {
+                return response()->json([
+                    'message' => 'User not Found',
+                ],422);
+            } else if (!Hash::check($request->token,$tokenUser->token)) {
+                return response()->json([
+                    'message' => 'Token Error',
+                ],422);
+            }
+
+            $tokenDate = Carbon::parse($tokenUser->created_at);
+            $diffHour = $tokenDate->diffInHours(now());
+            if ($diffHour > 1) {
+                DB::table('password_reser_tokens')->where('email', $request->email)->delete();
+                return response()->json([
+                    'message' => 'Token Expired',
+                ],408);
+            }
+            $user = User::where('email', $request->email)->first();
+            if(!$user) {
+                return response()->json([
+                    'message' => 'User not Found',
+                ],422);
+            }
+            DB::table('users')->where('email', $request->email)->update(['password' => Hash::make($request->password),
+        ]);
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+        return response()->json([
+            'message' => 'Password Change Successfully',
+        ],200);
+        } catch(\Exception $errors) {
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+            return response()->json([
+                'message' => 'Server Error',
+                'errors' => $errors ->getMessage(),
+            ],500);
         }
     }
 
@@ -324,4 +400,6 @@ class Usercontroller extends Controller
             ], 500);
         }
     }
+
+    
 }
