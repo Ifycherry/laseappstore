@@ -19,12 +19,16 @@ Route::post('/changepassword', [Usercontroller::class, 'changePassword']);
 Route::get('/allproduct',[ProductController::class, 'getProducts']);
 Route::get('/product/{id}',[ProductController::class, 'getProductById']);
 
+
+// Route::post('/admin/allproduct',[ProductController::class, 'getAdminProducts']);
+
 Route::middleware('auth:sanctum')->group(function(){
 Route::get('/getuser/{id}', [Usercontroller::class, 'getUser']);
 Route::get('/getusers',[Usercontroller::class, 'getUsers']);
 Route::post('/addproduct',[ProductController::class, 'addproduct']);
+Route::get('/admin/allproduct',[ProductController::class, 'getAdminProducts']);
 Route::get('/pending/products',[ProductController::class,'getPendingProducts']);
-Route::get('/approved/products/{id}',[ProductController::class,'approveProduct']);
+Route::post('/products/status/{id}',[ProductController::class,'changeProductStatus']);
 Route::post('/admin/user/roleupdate/{id}',[Usercontroller::class,'adminUpdateUserRole']);
 Route::post('/user/edit/{id}',[Usercontroller::class, 'editUser']);
 });

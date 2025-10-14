@@ -161,26 +161,72 @@ class Usercontroller extends Controller
     //     }
     // }
 
+    // public function login(Request $request)
+    // {
+    //     $credentials = $request->validate([
+    //         'email' => 'required|email',
+    //         'password' => 'required'
+    //     ]);
+
+    //     try {
+
+    //         if (Auth::attempt($credentials)) {
+    //             $user = Auth::user();
+    //             $token = $user->createToken('lase-token')->plainTextToken;
+    //             return response()->json([
+    //                 'user' => $user,
+    //                 'message' => "Login Successfully",
+    //                 'token' => $token,
+    //             ], 200);
+    //         }
+    //         return response()->json([
+    //             'message' => 'Invalid Login Credentials',
+    //         ], 400);
+    //     } catch (\Exception $error) {
+    //         return response()->json([
+    //             'message' => 'Invalid Login Credentials',
+    //             'error' => $error->getMessage(),
+    //         ], 500);
+    //     }
+    // }
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|email|exists:users',
             'password' => 'required'
         ]);
 
-        if (Auth::attempt($credentials)) {
-            $user = Auth::user();
-            $token = $user->createToken('lase-token')->plainTextToken;
-            return response()->json([
+        try {
+
+            if (Auth::attempt($credentials)) {
+                $user = Auth::user();
+                if ($user->email_verified_at === null) {
+                        return response()->json([
+                        'user' => $user,
+                        'message' => "Please verify account before login",
+                    ], 400);
+                }
+                // 'token' => $token,
+                // $token = $user->createToken('lase-token')->plainTextToken;
+                $token = $user->createToken('lase-token')->plainTextToken;
+               return response()->json([
                 'user' => $user,
                 'message' => "Login Successfully",
                 'token' => $token,
             ], 200);
         }
 
+        $errors =['email' => 'Invalid email', 'password' => 'invalid password'];
         return response()->json([
-            'message' => 'Invalid Login Credentials'
-        ], 400);
+            'message' => 'Invalid Login Credentials',
+            'errors' => $errors,
+        ],400);
+        } catch (\Exception $error) {
+            return response()->json([
+                'message' => 'Invalid Login Credentials',
+                'error' => $error->getMessage(),
+            ], 500);
+        }
     }
 
     public function forgetPasswordEmail(Request $request)
@@ -213,7 +259,7 @@ class Usercontroller extends Controller
                 'emails.forget-password',
                 [
                     'user' => $user,
-                    'url' => env('FRONTEND_URL') . '/change-password?email=' . $user->email. "&token=" . $token,
+                    'url' => env('FRONTEND_URL') . '/change-password?email=' . $user->email . "&token=" . $token,
                 ],
                 function ($message) use ($user) {
                     $message->to($user->email)->subject('Reset Account Password');
@@ -231,7 +277,8 @@ class Usercontroller extends Controller
         }
     }
 
-    public function changePassword(Request $request) {
+    public function changePassword(Request $request)
+    {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email|exists:Users,email',
             'token' => 'required|string',
@@ -244,44 +291,45 @@ class Usercontroller extends Controller
                 'errors' => $validator->errors(),
             ], 400);
         }
-        try{
+        try {
             $tokenUser = DB::table('password_reset_tokens')->where('email', $request->email)->first();
-            if(!$tokenUser) {
+            if (!$tokenUser) {
                 return response()->json([
                     'message' => 'User not Found',
-                ],422);
-            } else if (!Hash::check($request->token,$tokenUser->token)) {
+                ], 422);
+            } else if (!Hash::check($request->token, $tokenUser->token)) {
                 return response()->json([
                     'message' => 'Token Error',
-                ],422);
+                ], 422);
             }
 
             $tokenDate = Carbon::parse($tokenUser->created_at);
-            $diffHour = $tokenDate->diffInHours(now());
-            if ($diffHour > 1) {
+            $diffHour = $tokenDate->diffInMinutes(now());
+            if ($diffHour > 10) {
                 DB::table('password_reser_tokens')->where('email', $request->email)->delete();
                 return response()->json([
                     'message' => 'Token Expired',
-                ],408);
+                ], 408);
             }
             $user = User::where('email', $request->email)->first();
-            if(!$user) {
+            if (!$user) {
                 return response()->json([
                     'message' => 'User not Found',
-                ],422);
+                ], 422);
             }
-            DB::table('users')->where('email', $request->email)->update(['password' => Hash::make($request->password),
-        ]);
-        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
-        return response()->json([
-            'message' => 'Password Change Successfully',
-        ],200);
-        } catch(\Exception $errors) {
+            DB::table('users')->where('email', $request->email)->update([
+                'password' => Hash::make($request->password),
+            ]);
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+            return response()->json([
+                'message' => 'Password Change Successfully',
+            ], 200);
+        } catch (\Exception $errors) {
             DB::table('password_reset_tokens')->where('email', $request->email)->delete();
             return response()->json([
                 'message' => 'Server Error',
-                'errors' => $errors ->getMessage(),
-            ],500);
+                'errors' => $errors->getMessage(),
+            ], 500);
         }
     }
 
@@ -400,6 +448,4 @@ class Usercontroller extends Controller
             ], 500);
         }
     }
-
-    
 }
