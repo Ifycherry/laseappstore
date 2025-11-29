@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\AddressController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\Usercontroller;
 use App\Http\Controllers\ProductController;
 use Illuminate\Http\Request;
@@ -23,6 +26,7 @@ Route::get('/product/{id}',[ProductController::class, 'getProductById']);
 // Route::post('/admin/allproduct',[ProductController::class, 'getAdminProducts']);
 
 Route::middleware('auth:sanctum')->group(function(){
+Route::get('/getaddress',[AddressController::class, 'getUserAddress']);
 Route::get('/getuser/{id}', [Usercontroller::class, 'getUser']);
 Route::get('/getusers',[Usercontroller::class, 'getUsers']);
 Route::post('/addproduct',[ProductController::class, 'addproduct']);
@@ -31,6 +35,9 @@ Route::get('/pending/products',[ProductController::class,'getPendingProducts']);
 Route::post('/products/status/{id}',[ProductController::class,'changeProductStatus']);
 Route::post('/admin/user/roleupdate/{id}',[Usercontroller::class,'adminUpdateUserRole']);
 Route::post('/user/edit/{id}',[Usercontroller::class, 'editUser']);
+Route::post('address/create', [AddressController::class,'createaddress']);
+Route::post('order/create', [OrderController::class, 'createOrder']);
+Route::post('payment/create', [PaymentController::class, 'createPayment']);
 });
 // Route::get('/getusers',[Usercontroller::class, 'getusers'])->middleware
 // ('auth:sanctum');
